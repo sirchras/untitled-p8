@@ -30,8 +30,8 @@ function _update()
 		spawn_enemy(trigon)
 	end
 	--move/update enemies
-	for enemy in all(enemies) do
-		enemy:update()
+	for e in all(enemies) do
+		e:update()
 	end
 	--move/update bullets
 	for bullet in all(bullets) do
@@ -46,8 +46,8 @@ function _draw()
 	print("b:"..#bullets)
 	circ(64,64,50,8)--spawn outside
 	p:draw()
-	for enemy in all(enemies) do
-		enemy:draw()
+	for e in all(enemies) do
+		e:draw()
 	end
 	for bullet in all(bullets) do
 		bullet:draw()
@@ -67,6 +67,15 @@ function on_screen(self)
 	 self.x>-self.r and
 	 self.y<128 and
 	 self.y>-self.r
+end
+
+function circ_circ_coll(self,other)
+	local dx=self.x-other.x
+	local dy=self.y-other.y
+	local dist=(dx^2)+(dy^2)
+	local radii=(self.r^2)+
+		(other.r^2)
+	return dist<=radii
 end
 
 function get_controller_input(p)
@@ -165,18 +174,6 @@ function player:update()
 	local s_a=unpack(c0)
 	if not not s_a and
 	 self.fire_cooldown<=0 then
---		local cen_x=(self.width-bullet.width)/2
---		local cen_y=(self.height-bullet.height)/2
---		local off_x=(self.width+bullet.width)/2
---		local off_y=(self.height+bullet.height)/2
---		local b=bullet:new{
---			x=self.x+cen_x+(cos(s_a)*off_x),
---			y=self.y+cen_y+(-sin(s_a)*off_y),
---			angle=s_a,
-----			speed=0.5
---		}
-
---		local offset=self.r+bullet.r
 		local offset=self.r
 		local b=bullet:new{
 			x=self.x+(cos(s_a)*offset),
@@ -214,6 +211,21 @@ function bullet:update()
 	self:move(dx,dy)
 	if not on_screen(self) then
 		del(bullets,self)
+		return
+	end
+	--check collisions
+	self:check_enemy_colls()
+end
+function bullet:check_enemy_colls()
+	for e in all(enemies) do
+		local hit=circ_circ_coll(self,
+			e)
+		if hit then
+			--todo: score,dmg,effects
+			del(enemies,e)
+			del(bullets,this)
+			return
+		end
 	end
 end
 
