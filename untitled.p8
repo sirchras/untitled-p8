@@ -223,7 +223,7 @@ function bullet:check_enemy_colls()
 		if hit then
 			--todo: score,dmg,effects
 			del(enemies,e)
-			del(bullets,this)
+			del(bullets,self)
 			return
 		end
 	end
