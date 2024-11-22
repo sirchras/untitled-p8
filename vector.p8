@@ -16,7 +16,10 @@ function newvector(x, y)
   local o = {x = x or 0, y = y or 0}
   return setmetatable(o, vector)
 end
-vector.__call = function(_, ...) return newvector(...) end
+-- idk why this is the only thing that works, and idc at this point
+setmetatable(vector, {
+  __call = function(_, ...) return newvector(...) end,
+})
 
 function fromangle(angle)
   local x = cos(angle)
