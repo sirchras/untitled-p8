@@ -73,6 +73,12 @@ function vector.__div(a, b)
   return newvector(a.x / b, a.y / b)
 end
 
+function vector.__mod(a, b)
+  assert(isvector(a) and type(b) == "number")
+  assert(b != 0)
+  return newvector(a.x % b, a.y % b)
+end
+
 function vector.magsq(a)
   assert(isvector(a))
   return a:dot(a)
@@ -111,6 +117,13 @@ function vector.angle(a, b)
   --todo: check this works as intended
   local diff = a:heading() - b:heading()
   return abs(diff)
+end
+
+function vector.limit(a, b)
+  assert(isvector(a) and type(b) == "number")
+  local mag = a:mag()
+  if mag <= b then return a end
+  return a:norm() * b
 end
 
 function vector:__tostring()
