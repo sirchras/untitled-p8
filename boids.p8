@@ -15,7 +15,7 @@ function _init()
 	}
 	boids={}
 	boid_count=5
-	max_boid_count=20 --starts to chug at ~22
+	max_boid_count=15 --can handle more, but >15 can chug at times
 	spawn_boids()
 end
 
@@ -96,7 +96,7 @@ end
 --
 _target=class:new{
 	pos=vector(64,64),
-	speed=1.5,
+	speed=2,
 	r=4,
 }
 function _target:update()
