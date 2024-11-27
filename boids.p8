@@ -5,6 +5,7 @@ __lua__
 
 function _init()
 	--
+	target=_target:new()
 	boids={}
 	boid_count=5
 	max_boid_count=20 --starts to chug at ~22
@@ -18,6 +19,7 @@ function _update()
 	if #boids<boid_count then
 		spawn_boids()
 	end
+	target:update()
 	for boid in all(boids) do
 		boid:update()
 	end
@@ -26,6 +28,7 @@ end
 function _draw()
 	cls()
 	print(boid_count,0,0,11)
+	target:draw()
 	for boid in all(boids) do
 		boid:draw()
 	end
@@ -68,8 +71,25 @@ end
 --
 --target
 --
-_target=class:new{}
-
+_target=class:new{
+	pos=vector(64,64),
+	r=4,
+}
+function _target:update()
+	--⬆️⬅️⬇️➡️ movement
+	local d=vector()
+	if (btn(⬅️)) d.x-=1
+	if (btn(➡️)) d.x+=1
+	if (btn(⬆️)) d.y-=1
+	if (btn(⬇️)) d.y+=1
+	move(self,d)
+	screen_wrap(self)
+end
+function _target:draw()
+	local x,y=self.pos.x,self.pos.y
+	circfill(x,y,self.r,8)
+	circ(x,y,self.r,7)
+end
 --
 --boid
 --
@@ -83,6 +103,7 @@ _boid=class:new{
 	sepweight=1.5,
 	alignweight=1,
 	cohweight=1,
+	tgweight=2,
 }
 --update
 function _boid:update()
@@ -109,6 +130,9 @@ function _boid:update()
 	--cohesion
 	local coh=self:cohesion(neighbors)
 	acc+=(coh*self.cohweight)
+	--target
+	local tg=self:target()
+	acc+=(tg*self.tgweight)
 	--update velocity
 	v+=acc
 	v:limit(max_speed)
@@ -160,6 +184,14 @@ function _boid:cohesion(boids)
 		steer=steer:norm()*max_speed
 		steer-=self.v
 	end
+	return steer:limit(max_force)
+end
+--target
+function _boid:target()
+	local max_speed,max_force=self.max_speed,self.max_force
+	local steer=target.pos-self.pos
+	steer=steer:norm()*max_speed
+	steer-=self.v
 	return steer:limit(max_force)
 end
 --draw
