@@ -2,6 +2,9 @@ pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 #include vector.p8
+--todo:
+--boid blind spot, limited view angle
+--obstacle avoidance?
 
 function _init()
 	screen={
@@ -80,6 +83,11 @@ function screen_wrap(self)
 	self.pos=self.pos%128
 end
 
+function screen_clamp(self)
+	self.pos.x=mid(self.r,self.pos.x,128-self.r)
+	self.pos.y=mid(self.r,self.pos.y,128-self.r)
+end
+
 --
 --classes--
 --
@@ -109,7 +117,8 @@ function _target:update()
 	if (btn(⬇️)) d.y+=1
 	d=d:norm()*self.speed
 	move(self,d)
-	screen_wrap(self)
+--	screen_wrap(self)
+	screen_clamp(self)
 end
 function _target:draw()
 	if (not self.enabled) return
@@ -128,7 +137,7 @@ _boid=class:new{
 	min_speed=0.5,
 	sepdist=15, --desired separation
 	neighbordist=25,
-	sepweight=2,
+	sepweight=1.5,
 	alignweight=1,
 	cohweight=1,
 	tgweight=2,
@@ -182,7 +191,7 @@ function _boid:separate(boids)
 	local max_speed,max_force=self.max_speed,self.max_force
 	local steer=vector()
 	for boid in all(boids) do
-		local diff=self.pos - boid.pos
+		local diff=self.pos-boid.pos
 		diff=diff:norm()/#diff
 		steer+=diff
 	end
