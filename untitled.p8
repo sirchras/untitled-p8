@@ -2,6 +2,10 @@ pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 --main
+#include vector.p8
+--todo:
+--rewrite using vectors
+
 function _init()
 	--debug vars
 	debug_angle=nil
