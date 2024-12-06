@@ -1,38 +1,11 @@
 pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
-function _init()
-	--only p1 can be manipulated
-	p1=newpoly(3,64,64,30)
-	p2=newpoly(5,90,90,10,0.5)
-	p3=newpoly(6,40,90,30,0.25)
-	p4=newpoly(4,20,20,10,0.125)
-	p5=newpoly(4,60,20,12)
-end
+--imports
+#include vector.p8
 
-function _update()
-	--increase size by 1 px
-	if (btn(⬆️)) p1.r+=1
-	if (btn(⬇️)) p1.r-=1
-	--rotate by 1/100 of a turn
-	if (btn(⬅️)) p1.a-=0.01
-	if (btn(➡️)) p1.a+=0.01
-	p1.a=p1.a%1
-	--change # of sides/verts by 1
-	if (btnp(🅾️) and p1.n>3) p1.n-=1
-	if (btnp(❎)) p1.n+=1
-end
-
-function _draw()
-	cls()
-	print(p1.r.." "..p1.a,8)
-	p1:draw()
-	p2:draw()
-	p3:draw()
-	p4:draw()
-	p5:draw()
-end
-
+-->8
+--polygon class
 --
 gmobj={}
 function gmobj:new(o)
@@ -87,8 +60,39 @@ function newpoly(n,x,y,r,a)
 	}
 end
 
+-->8
+--main
+function _init()
+	--only p1 can be manipulated
+	p1=newpoly(3,64,64,30)
+	p2=newpoly(5,90,90,10,0.5)
+	p3=newpoly(6,40,90,30,0.25)
+	p4=newpoly(4,20,20,10,0.125)
+	p5=newpoly(4,60,20,12)
+end
 
+function _update()
+	--increase size by 1 px
+	if (btn(⬆️)) p1.r+=1
+	if (btn(⬇️)) p1.r-=1
+	--rotate by 1/100 of a turn
+	if (btn(⬅️)) p1.a-=0.01
+	if (btn(➡️)) p1.a+=0.01
+	p1.a=p1.a%1
+	--change # of sides/verts by 1
+	if (btnp(🅾️) and p1.n>3) p1.n-=1
+	if (btnp(❎)) p1.n+=1
+end
 
+function _draw()
+	cls()
+	print(p1.r.." "..p1.a,8)
+	p1:draw()
+	p2:draw()
+	p3:draw()
+	p4:draw()
+	p5:draw()
+end
 
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
