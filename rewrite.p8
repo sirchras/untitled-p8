@@ -2,6 +2,9 @@ pico-8 cartridge // http://www.pico-8.com
 version 41
 __lua__
 #include vector.p8
+#include polygon.p8:1
+-- ^appears to be an issue in the P8-LS, should be able to
+-- include a single tab
 
 --globals
 _zero=vector()
@@ -14,6 +17,7 @@ screen={
 --init globals
 p=player:new()
 bullets={}
+enemies={}
 
 --helper functions
 function on_screen(self)
@@ -44,6 +48,22 @@ function get_directional_input(c)
   if (btn(⬇️,p)) dv.y+=1
   if (btn(⬆️,p)) dv.y-=1
   return dv:norm() --return normalised vector for convenience
+end
+
+function spawn_enemy(typ)
+  local typ=typ
+  local a=vector.heading(vector(64,64)-p.pos)
+  local h=rnd()
+  local a_off=rnd(h)-(h/2)
+  local pos=vector.fromangle(a+a_off)*60
+  local v=vector.norm(pos-p.pos)*typ.speed
+  local poly=polygon(typ.n,pos,typ.r,v:heading())
+  local e=typ:new{
+    pos=pos,
+    v=v,
+    poly=poly,
+  }
+  return add(enemies,e)
 end
 
 --base class
@@ -91,7 +111,7 @@ function player:update()
     local pos,offset=self.pos,self.r
     add(bullets,bullet:new{
       pos=pos+(fv*offset),
-      v=fv,
+      v=fv*bullet.speed,
     })
     self.fire_cooldown=8
   end
@@ -104,16 +124,18 @@ end
 --bullet
 bullet=gmobj:new{
   r=2,
-  v=vector(0,-1),
-  speed=3,
+  v=vector(0,-3),
+  speed=3, --should be redundant?
 }
 function bullet:draw()
   local pos=self.pos
   circfill(pos.x,pos.y,self.r,8)
 end
 function bullet:update()
-  local v=self.v*self.speed
-  self:move(v)
+  --shouldn't vector v include speed component
+  -- local v=self.v*self.speed
+  -- self:move(v)
+  self:move(self.v)
   if not on_screen(self) then
     del(bullets,self)
     return
@@ -121,29 +143,51 @@ function bullet:update()
   --check collisions
 end
 
---polygon
-poly=gmobj:new{
-  --placeholder vals - get from enemy containing the poly
-  angle=0.75,
-  n=3,
-  r=30,
-  c=11,
-}
-function poly:draw()
-  local verts=self:getvertices()
-  for i=1,#verts do
-    local a=verts[i]
-    local b=verts[(i%#verts)+1]
-    line(a.x,a.y,b.x,b.y,self.c)
+--enemy
+enemy=gmobj:new()
+function enemy:draw()
+  self.poly:draw()
+end
+function enemy:update()
+  -- local v=self.v*self.speed
+  -- gmobj.move(self,v)
+  local v=self.v
+  self:move(v)
+  self.poly.angle=v:heading() --update polygon facing
+  if not on_screen(self) then
+    del(enemies,self)
   end
 end
-function poly:getvertices()
-  local pos=self.pos
-  local a,r=self.angle,self.r
-  local verts={}
-  for i=1,self.n do
-    verts[i]=vector(pos.x+(cos(a)*r),pos.y+(-sin(a)*r))
-    a=(a+(1/self.n))%1
+
+--tri-gon
+trigon=enemy:new{
+  n=3,
+  r=4,
+  c=11,
+  speed=1,
+  max_speed=1.5,
+  max_force=0.3,
+  target=p,
+  tgweight=1,
+}
+function trigon:update()
+  --todo: add boid code
+  local v=self.v
+  local acc=vector()
+  --homing
+  local diff=vector.angle(self.target,self.v)
+  if abs(diff)<0.25 then
+    acc+=(self:homing()*self.tgweight)
   end
-  return verts
+  v+=acc
+  self.v=v:limit(self.max_speed)
+  enemy.update(self) --call parent class update
+end
+function trigon:homing()
+  local max_speed,max_force=self.max_speed,self.max_force
+  local target=p.pos-self.pos
+  -- local diff=vector.angle(target,self.v)
+  -- if (abs(diff)>0.25)
+  local steer=(target:norm()*max_speed)-self.v
+  return steer:limit(max_force)
 end
