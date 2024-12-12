@@ -3,7 +3,6 @@ version 41
 __lua__
 #include vector.p8
 --todo:
---boid blind spot, limited view angle
 --obstacle avoidance?
 
 function _init()
@@ -20,6 +19,7 @@ function _init()
 	boid_count=5
 	max_boid_count=15 --can handle more, but >15 can chug at times
 	spawn_boids()
+--	boids[1].debug=true
 end
 
 function _update()
@@ -45,12 +45,12 @@ end
 function _draw()
 	cls()
 	--debug:screen margins
-	local x1=screen.left+_boid.edgemargin
-	local x2=screen.right-_boid.edgemargin
-	local y1=screen.top+_boid.edgemargin
-	local y2=screen.bottom-_boid.edgemargin
-	rect(x1,y1,x2,y2,8)
-	rect(0,0,127,127,8)
+--	local x1=screen.left+_boid.edgemargin
+--	local x2=screen.right-_boid.edgemargin
+--	local y1=screen.top+_boid.edgemargin
+--	local y2=screen.bottom-_boid.edgemargin
+--	rect(x1,y1,x2,y2,8)
+--	rect(0,0,127,127,8)
 	--
 	print(boid_count,1,1,11)
 	print(target.enabled,1,7,11)
@@ -135,8 +135,9 @@ _boid=class:new{
 	max_force=0.03,
 	max_speed=1.5,
 	min_speed=0.5,
+	view_angle=0.7,
+	viewdist=30,
 	sepdist=15, --desired separation
-	neighbordist=25,
 	sepweight=1.5,
 	alignweight=1,
 	cohweight=1,
@@ -144,6 +145,7 @@ _boid=class:new{
 	stayonscreen=true,
 	turnfactor=0.2,
 	edgemargin=12,
+	debug=false,
 }
 --update
 function _boid:update()
@@ -151,16 +153,19 @@ function _boid:update()
 	local acc,v=vector(),self.v
 	local nearby,neighbors={},{}
 	for boid in all(boids) do
-		local dist=self.pos:dist(boid.pos)
-		if (dist==0) goto continue
+		local diff=boid.pos-self.pos
+		local dist=diff:mag()
+		local ang=v:angle(diff)
+		if (boid==self) goto continue
 		if dist < self.sepdist then
 			add(nearby,boid)
 		end
-		if dist < self.neighbordist then
+		if dist < self.viewdist and ang<=(self.view_angle/2) then
 			add(neighbors,boid)
 		end
 		::continue::
 	end
+	if (self.debug) self.neighbors=neighbors
 	--separation
 	local sep=self:separate(nearby)
 	acc+=(sep*self.sepweight)
@@ -182,6 +187,9 @@ function _boid:update()
 		v+=self:avoid_edges()
 	end
 	v=v:limit(max_speed)
+	if #v<min_speed then
+		v=v:norm()*min_speed
+	end
 	move(self,v)
 	self.v=v
 	screen_wrap(self)
@@ -240,6 +248,7 @@ function _boid:target()
 	steer-=self.v
 	return steer:limit(max_force)
 end
+--todo: obstacles?
 --avoid going off edge of screen
 -- best effort, not 100% successful
 function _boid:avoid_edges()
@@ -255,10 +264,24 @@ end
 --draw
 function _boid:draw()
 	local x,y=self.pos.x,self.pos.y
-	local r=self.r
-	local dx,dy=self.v.x,self.v.y
-	circ(x,y,r,self.c)
-	line(x,y,x+dx*r*1.5,y+dy*r*1.5,11)
+	local ray_len=self.debug and self.viewdist or self.r*1.5
+	local col=self.debug and 8 or self.c
+	local v=self.debug and self.v:norm() or self.v
+	circ(x,y,self.r,col)
+	line(x,y,x+v.x*ray_len,y+v.y*ray_len,11)
+	if self.debug then
+		local heading=self.v:heading()
+		local angle=self.view_angle/2
+		local ray_1=fromangle((heading-angle)%1)*ray_len
+		local ray_2=fromangle((heading+angle)%1)*ray_len
+		circ(x,y,ray_len,3)
+		circ(x,y,self.sepdist,8)
+		line(x,y,x+ray_1.x,y+ray_1.y,3)
+		line(x,y,x+ray_2.x,y+ray_2.y,3)
+		for b in all(self.neighbors) do
+			line(x,y,b.pos.x,b.pos.y,6)
+		end
+	end
 end
 __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
