@@ -110,7 +110,6 @@ function spawn_enemy(typ)
 	if (a==_zero) a=rnd()
 	local h=rnd()
 	local a_off=rnd(h)-(h/2)
-	local a_off=0
 	local pos=center+fromangle(a+a_off)*60
 	local v=vector.norm(p.pos-pos)*typ.speed
 	local poly=polygon(typ.n,pos,typ.r,v:heading())
