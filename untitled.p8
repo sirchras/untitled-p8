@@ -3,15 +3,21 @@ version 41
 __lua__
 --main
 #include vector.p8
+#include polygon.p8:1
 --todo:
 --rewrite using vectors
 
+--globals
+_zero=vector()
+screen={⬆️=0,⬅️=0,⬇️=128,➡️=128}
+
 function _init()
 	--debug vars
+--	frame=0
 	debug_angle=nil
 	x="hello world"
 	--strings are 1 token!?!
-	p=player:new{x=60,y=60}
+	p=player:new{pos=vector(64,64)}
 	bullets={}
 	enemies={}
 	desired_enemy_count=1
@@ -26,6 +32,9 @@ function _init()
 end
 
 function _update()
+	--debuging
+--	frame+=1
+	--
 	--move/update player
 	p:update()
 	--spawn enemies
@@ -45,7 +54,7 @@ end
 
 function _draw()
 	cls()
-	print("p:"..p.x.." "..p.y)
+	print("p:"..p.pos.x.." "..p.pos.y,8)
 	print("e:"..#enemies)
 	print("b:"..#bullets)
 	circ(64,64,50,8)--spawn outside
@@ -56,23 +65,23 @@ function _draw()
 	for bullet in all(bullets) do
 		bullet:draw()
 	end
+--	print(frame,1,120,8)
 end
 
 --helper functions
 function screen_clamp(self)
-	self.x=mid(self.r,self.x,
-		128-self.r)
-	self.y=mid(self.r,self.y,
-		128-self.r)
+	local pos,r=self.pos,self.r or 0
+	self.pos.x=mid(screen.⬅️+r,pos.x,screen.➡️-r)
+	self.pos.y=mid(screen.⬆️+r,pos.y,screen.⬇️-r)
 end
 
 function on_screen(self)
-	return self.x<128 and
-	 self.x>-self.r and
-	 self.y<128 and
-	 self.y>-self.r
+	local pos,r=self.pos,self.r or 0
+	return screen.⬅️+r<=pos.x and pos.x<screen.➡️-r
+	 and screen.⬆️+r<=pos.y and pos.y<screen.⬇️-r
 end
 
+--todo: rewrite w/ vectors
 function circ_circ_coll(self,other)
 	local dx=self.x-other.x
 	local dy=self.y-other.y
@@ -82,32 +91,34 @@ function circ_circ_coll(self,other)
 	return dist<=radii
 end
 
-function get_controller_input(p)
-	local dx,dy,a=0,0
-	local ❎,🅾️=false,false
-	if (btn(⬅️,p)) dx=-1
-	if (btn(➡️,p)) dx=1
-	if (btn(⬆️,p)) dy=1
-	if (btn(⬇️,p)) dy=-1
-	if (btn(❎,p)) ❎=true
-	if (btn(🅾️,p)) 🅾️=true
-	if dx!=0 or dy!=0 then
-		a=atan2(dx,dy)
-	end
-	return {a,❎,🅾️}
+--function get_controller_input(c)
+function get_directional_input(c)
+	--better name tbh, other input not used
+	local dv=vector()
+	if (btn(➡️,c)) dv.x+=1
+	if (btn(⬅️,c)) dv.x-=1
+	if (btn(⬇️,c)) dv.y+=1
+	if (btn(⬆️,c)) dv.y-=1
+	return dv:norm() --return normalised vector for convenience
 end
 
 function spawn_enemy(typ)
-	local typ=typ or trigon
-	local px,py=p.x,p.y
-	local a=atan2(64-px,-(64-py))
+	spawn_fn=true
+	local typ=typ
+	local center=vector(64,64)
+	local a=vector.heading(center-p.pos)
+	if (a==_zero) a=rnd()
 	local h=rnd()
 	local a_off=rnd(h)-(h/2)
-	local x=64+(cos(a+a_off)*60)
-	local y=64+(-sin(a+a_off)*60)
+	local a_off=0
+	local pos=center+fromangle(a+a_off)*60
+	local v=vector.norm(p.pos-pos)*typ.speed
+	local poly=polygon(typ.n,pos,typ.r,v:heading())
 	local e=typ:new{
-		x=x,y=y,
-		angle=atan2(px-x,-(py-y))
+		pos=pos,
+		v=v,
+		poly=poly,
+		target=p,
 	}
 	return add(enemies,e)
 end
@@ -125,71 +136,52 @@ end
 --base game object class
 --
 gmobj=class:new{
-	x=0,
-	y=0,
---	sprite=0,
---	width=8,
---	height=8,
+	pos=vector(0,0)
 }
---update fn
-function gmobj:update()
-	--
-end
 --draw fn
 function gmobj:draw()
---	local sp=self.sprite
-	local x,y=self.x,self.y
---	spr(sp,x,y)
-	spr(0,x,y)
+	local pos=self.pos
+	spr(0,pos.x,pos.y)
 end
-function gmobj:move(dx,dy)
-	self.x+=dx
-	self.y+=dy
+--update fn
+function gmobj:update()
+	--placeholder
+end
+function gmobj:move(v)
+	self.pos+=v
 end
 
 --
 --player class
 --
 player=gmobj:new{
---	sprite=1,
 	r=4,
 	speed=1.25,
 	fire_cooldown=0,
 }
 function player:draw()
-	circ(self.x,self.y,self.r,8)
+	local pos=self.pos
+	circ(pos.x,pos.y,self.r,8)
 end
 --update fn
 function player:update()
 	--movement
-	local c1=get_controller_input(1)
-	local m_a=unpack(c1)
-	if not not m_a then
-		local spd=p.speed
-		--movement is not smooth at
-		-- speed=1?
-		local dx,dy=cos(m_a)*spd,
-			-sin(m_a)*spd
-		self:move(dx,dy)
-	end
+	local v=get_directional_input(1)*self.speed
+	self:move(v)
 	--shooting
 	self.fire_cooldown-=1
-	local c0=get_controller_input(0)
-	local s_a=unpack(c0)
-	if not not s_a and
-	 self.fire_cooldown<=0 then
-		local offset=self.r
-		local b=bullet:new{
-			x=self.x+(cos(s_a)*offset),
-			y=self.y+(-sin(s_a)*offset),
-			angle=s_a
-		}
-		add(bullets,b)
+	local fv=get_directional_input(0)
+	if fv!=_zero and self.fire_cooldown<=0 then
+		local pos,offset=self.pos,self.r
+		add(bullets,bullet:new{
+			pos=pos+(fv*offset),
+			v=fv*bullet.speed,
+		})
 		self.fire_cooldown=8
 	end
 end
-function player:move(dx,dy)
-	gmobj.move(self,dx,dy)
+function player:move(v)
+	gmobj.move(self,v)
 	screen_clamp(self)
 end
 
@@ -197,82 +189,55 @@ end
 --bullet class
 --
 bullet=gmobj:new{
---	sprite=2,
---	width=5,
---	height=5,
 	r=2,
+	v=vector(0,-1),
 	speed=3,
-	angle=0.75,
 }
 function bullet:draw()
-	circfill(self.x,self.y,self.r,8)
+	local pos=self.pos
+	circfill(pos.x,pos.y,self.r,8)
 end
 function bullet:update()
-	local a,spd=self.angle,
-		self.speed
-	local dx,dy=cos(a)*spd,
-		-sin(a)*spd
-	self:move(dx,dy)
+	self:move(self.v)
 	if not on_screen(self) then
 		del(bullets,self)
 		return
 	end
+	--todo: rewrite collisions
 	--check collisions
-	self:check_enemy_colls()
+--	self:check_enemy_colls()
 end
-function bullet:check_enemy_colls()
-	for e in all(enemies) do
-		local hit=circ_circ_coll(self,
-			e)
-		if hit then
-			--todo: score,dmg,effects
-			del(enemies,e)
-			del(bullets,self)
-			return
-		end
-	end
-end
-
---
---polygon
---
-poly=gmobj:new{
-	angle=0.75,
-}
---draw polygon
-function poly:draw()
-	local verts=self:getverts()
-	for i=1,#verts do
-		local a=verts[i]
-		local b=verts[(i%#verts)+1]
-		line(a.x,a.y,b.x,b.y,11)
-	end
-end
---calculate polygon verticies
-function poly:getverts()
-	local a,r=self.angle,self.r
-	local verts={}
-	for i=1,self.n do
-		verts[i]={
-			x=self.x+r*cos(a),
-			y=self.y+r*-sin(a)
-		}
-		a=(a+(1/self.n))%1
-	end
-	return verts
-end
+--function bullet:check_enemy_colls()
+--	for e in all(enemies) do
+--		local hit=circ_circ_coll(self,
+--			e)
+--		if hit then
+--			--todo: score,dmg,effects
+--			del(enemies,e)
+--			del(bullets,self)
+--			return
+--		end
+--	end
+--end
 
 --
 --enemy base class
 --
-enemy=poly:new()
+enemy=gmobj:new()
+function enemy:draw()
+	self.poly:draw()
+	local pos=self.pos
+	local v=self.v
+	line(pos.x,pos.y,pos.x+(10*v.x),pos.y+(10*v.y),11)
+end
 function enemy:update()
-	local a,spd=self.angle,
-		self.speed
-	local dx,dy=cos(a)*spd,
-		-sin(a)*spd
-	self:move(dx,dy)
-	--todo: add collisions
+	-- local v=self.v*self.speed
+	-- gmobj.move(self,v)
+	local v=self.v
+	self:move(v)
+	--update poly -kinda annoying
+	self.poly.position=self.pos
+	self.poly.angle=v:heading() --update polygon facing
 	if not on_screen(self) then
 		del(enemies,self)
 	end
@@ -284,32 +249,39 @@ end
 trigon=enemy:new{
 	n=3,
 	r=4,
-	speed=1
+	c=11,
+	speed=1,
+	max_speed=1.5,
+	min_speed=1,
+	max_force=0.3,
+--	target=p,
+	tgweight=1,
 }
-function trigon:draw()
-	local spd=self.speed
-	local a=self.angle
-	local dx=cos(a)*spd*10
-	local dy=-sin(a)*spd*10
-	print(a,self.x,self.y-8,8)
-	line(self.x,self.y,self.x+dx,self.y+dy,13)
-	enemy.draw(self)
-end
 function trigon:update()
+	--todo: add boid code
+	local v=self.v
+	local acc=vector()
 	--homing
-	local x,y=self.x,self.y
-	local a=self.angle
-	local target_a=atan2(p.x-x,
-	 y-p.y)
-	local diff=target_a-a
-	--stop homing if angle diff
-	-- too large
+	local tpos=self.target.pos
+	local diff=vector.angle(tpos-self.pos,self.v)
 	if abs(diff)<0.25 then
-		a+=sgn(diff)*0.005
+		acc+=(self:homing()*self.tgweight)
 	end
-	self.angle=a
-	--call parent update
-	enemy.update(self)
+	v+=acc
+	v=v:limit(self.max_speed)
+	if #v<self.min_speed then
+		v=v:norm()*self.min_speed
+	end
+	self.v=v
+	enemy.update(self) --call parent class update
+end
+function trigon:homing()
+	local max_speed,max_force=self.max_speed,self.max_force
+	local steer=target.pos-self.pos
+	-- local diff=vector.angle(target,self.v)
+	-- if (abs(diff)>0.25)
+	local steer=(steer:norm()*max_speed)-self.v
+	return steer:limit(max_force)
 end
 __gfx__
 00000000008888000888000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
