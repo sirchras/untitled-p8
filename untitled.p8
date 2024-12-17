@@ -277,7 +277,7 @@ function trigon:update()
 end
 function trigon:homing()
 	local max_speed,max_force=self.max_speed,self.max_force
-	local steer=target.pos-self.pos
+	local steer=self.target.pos-self.pos
 	-- local diff=vector.angle(target,self.v)
 	-- if (abs(diff)>0.25)
 	local steer=(steer:norm()*max_speed)-self.v
