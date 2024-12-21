@@ -20,7 +20,7 @@ function _init()
 	p=player:new{pos=vector(64,64)}
 	bullets={}
 	enemies={}
-	desired_enemy_count=1
+	desired_enemy_count=3
 --	enemies[1]=trigon:new{
 --		x=10,y=64,
 --		--facing player
@@ -38,10 +38,7 @@ function _update()
 	--move/update player
 	p:update()
 	--spawn enemies
-	local n=desired_enemy_count-#enemies
-	for i=n,1,-1 do
-		spawn_enemy(trigon)
-	end
+	spawn_enemies()
 	--move/update enemies
 	for e in all(enemies) do
 		e:update()
@@ -102,8 +99,14 @@ function get_directional_input(c)
 	return dv:norm() --return normalised vector for convenience
 end
 
+function spawn_enemies()
+	local n=desired_enemy_count-#enemies
+	for i=n,1,-1 do
+		spawn_enemy(trigon)
+	end
+end
+
 function spawn_enemy(typ)
-	spawn_fn=true
 	local typ=typ
 	local center=vector(64,64)
 	local a=vector.heading(center-p.pos)
@@ -155,7 +158,7 @@ end
 --
 player=gmobj:new{
 	r=4,
-	speed=1.25,
+	speed=1.5,
 	fire_cooldown=0,
 }
 function player:draw()
@@ -249,10 +252,16 @@ trigon=enemy:new{
 	n=3,
 	r=4,
 	c=11,
-	speed=1,
-	max_speed=1.5,
+	max_force=0.03,
+	max_speed=1.25,
+	speed=1, --redundant?
 	min_speed=1,
-	max_force=0.3,
+	viewangle=0.6,
+	viewdist=30,
+	sepdist=15,
+	sepweight=1,
+	alignweight=1,
+	cohweight=1,
 --	target=p,
 	tgweight=1,
 }
@@ -261,11 +270,14 @@ function trigon:update()
 	local v=self.v
 	local acc=vector()
 	--homing
-	local tpos=self.target.pos
-	local diff=vector.angle(tpos-self.pos,self.v)
-	if abs(diff)<0.25 then
-		acc+=(self:homing()*self.tgweight)
-	end
+	local tgf=self:homing()
+	if (tgf) acc+=(tgf*self.tgweight)
+	-- local target=self.target
+	-- local diff=target.pos-self.pos
+	-- local tgang=vector.angle(diff,self.v)
+	-- if abs(tgang)<(self.veiwangle/2) then
+	-- 	acc+=(self:homing()*self.tgweight)
+	-- end
 	v+=acc
 	v=v:limit(self.max_speed)
 	if #v<self.min_speed then
@@ -274,12 +286,60 @@ function trigon:update()
 	self.v=v
 	enemy.update(self) --call parent class update
 end
+--homing fn, returns nil if angle between velocity and path to target
+-- is too large
 function trigon:homing()
 	local max_speed,max_force=self.max_speed,self.max_force
-	local steer=self.target.pos-self.pos
-	-- local diff=vector.angle(target,self.v)
-	-- if (abs(diff)>0.25)
-	local steer=(steer:norm()*max_speed)-self.v
+	local diff=self.target.pos-self.pos
+	local angle=vector.angle(diff,self.v)
+	if (abs(angle)<(self.viewangle/2)) return
+	local steer=(diff:norm()*max_speed)-self.v
+	return steer:limit(max_force)
+end
+function trigon:parseboids()
+	--need to identify which enemies to react to and how
+end
+function trigon:separate(boids)
+	local max_speed,max_force=self.max_speed,self.max_force
+	local steer=vector()
+	for boid in all(boids) do
+		local diff=self.pos-boid.pos
+		diff=diff:norm()/#diff
+		steer+=diff
+	end
+	if (#boids>0) steer/=#boids
+	if (#steer>0) then
+		steer=steer:norm()*max_speed
+		steer-=self.v
+	end
+	return steer:limit(max_force)
+end
+function trigon:align(boids)
+	local max_speed,max_force=self.max_speed,self.max_force
+	local steer,sum=vector(),vector()
+	for boid in all(boids) do
+		sum+=boid.v
+	end
+	if (#boids>0) then
+		sum/=#boids
+		sum=sum:norm()*max_speed
+		steer=sum-self.v
+	end
+	return steer:limit(max_force)
+end
+function trigon:cohesion(boids)
+	local max_speed,max_force=self.max_speed,self.max_force
+	local steer,sum=vector(),vector()
+	for boid in all(boids) do
+		sum+=boid.pos
+	end
+	if (#boids>0) then
+		--find average/center pos
+		-- sum/=#boids
+		steer=(sum/#boids)-self.pos
+		steer=steer:norm()*max_speed
+		steer-=self.v
+	end
 	return steer:limit(max_force)
 end
 __gfx__

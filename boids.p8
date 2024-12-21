@@ -4,6 +4,8 @@ __lua__
 #include vector.p8
 --todo:
 --obstacle avoidance?
+--possibe performance optimisation: use coroutines?
+--spatial partitioning: boids loop over boids in neighbouring cells only
 
 function _init()
 	screen={
@@ -18,6 +20,7 @@ function _init()
 	boids={}
 	boid_count=5
 	max_boid_count=15 --can handle more, but >15 can chug at times
+	--15 boids + target can chug at times
 	spawn_boids()
 --	boids[1].debug=true
 end
