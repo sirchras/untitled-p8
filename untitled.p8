@@ -5,7 +5,7 @@ __lua__
 #include vector.p8
 #include polygon.p8:1
 --todo:
---rewrite using vectors
+--tweak boid weights
 
 --globals
 _zero=vector()
@@ -256,9 +256,9 @@ trigon=enemy:new{
 	max_speed=1.25,
 	speed=1, --redundant?
 	min_speed=1,
-	viewangle=0.6,
-	viewdist=30,
-	sepdist=15,
+	viewangle=0.75,
+	viewdist=15,
+	sepdist=10,
 	sepweight=1,
 	alignweight=1,
 	cohweight=1,
@@ -269,6 +269,18 @@ function trigon:update()
 	--todo: add boid code
 	local v=self.v
 	local acc=vector()
+	--parse boids to get nearby,neighbors
+	--todo: may need to update to check whether enemy is boid
+	local nearby,neighbors=self:parseboids(enemies)
+	--separation
+	local sep=self:separate(nearby)
+	acc+=(sep*self.sepweight)
+	--alignment
+	local align=self:align(neighbors)
+	acc+=(align*self.alignweight)
+	--cohesion
+	local coh=self:cohesion(neighbors)
+	acc+=(coh*self.cohweight)
 	--homing
 	local tgf=self:homing()
 	if (tgf) acc+=(tgf*self.tgweight)
@@ -292,12 +304,27 @@ function trigon:homing()
 	local max_speed,max_force=self.max_speed,self.max_force
 	local diff=self.target.pos-self.pos
 	local angle=vector.angle(diff,self.v)
-	if (abs(angle)<(self.viewangle/2)) return
+	if (abs(angle)>(self.viewangle/2)) return
 	local steer=(diff:norm()*max_speed)-self.v
 	return steer:limit(max_force)
 end
-function trigon:parseboids()
-	--need to identify which enemies to react to and how
+--parse boids to find nearby/neighboring boids
+function trigon:parseboids(boids)
+	local nearby,neighbors={},{}
+	for boid in all(boids) do
+		if (boid==self) goto continue
+		local diff=boid.pos-self.pos
+		local dist=diff:mag()
+		local ang=self.v:angle(diff)
+		if dist<self.sepdist then
+			add(nearby,boid)
+		end
+		if dist<self.viewdist and ang<=(self.viewangle/2) then
+			add(neighbors,boid)
+		end
+		::continue::
+	end
+	return nearby,neighbors
 end
 function trigon:separate(boids)
 	local max_speed,max_force=self.max_speed,self.max_force
